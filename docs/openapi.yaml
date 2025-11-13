@@ -1,0 +1,260 @@
+openapi: 3.1.0
+info:
+  title: Rememory API
+  version: 0.1.0
+  description: REST API for Rememory grief support application.
+servers:
+  - url: https://api.rememory.app/api
+paths:
+  /auth/signup:
+    post:
+      summary: Create a Firebase Auth user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 10
+                displayName:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uid:
+                    type: string
+                  email:
+                    type: string
+  /persona:
+    get:
+      summary: Retrieve the current user persona
+      security: [{ firebaseAuth: [] }]
+      responses:
+        '200':
+          description: Persona or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Persona'
+                  - type: 'null'
+    post:
+      summary: Create persona
+      security: [{ firebaseAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaCreate'
+      responses:
+        '201':
+          description: Persona created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+  /persona/{personaId}:
+    put:
+      summary: Update persona
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaCreate'
+      responses:
+        '204':
+          description: Updated
+    delete:
+      summary: Delete persona
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmation]
+              properties:
+                confirmation:
+                  type: string
+      responses:
+        '204':
+          description: Deleted
+    post:
+      operationId: startPersona
+      summary: Mark persona timer started
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: Timer started
+  /persona/{personaId}/chat:
+    get:
+      summary: List chat messages
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+    post:
+      summary: Send chat message
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, clientMessageId]
+              properties:
+                text:
+                  type: string
+                  maxLength: 1000
+                clientMessageId:
+                  type: string
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  personaStatus:
+                    type: string
+                  remainingMs:
+                    type: integer
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  summaryAppended:
+                    type: boolean
+        '410':
+          description: Persona expired
+  /persona/{personaId}/transcript:
+    get:
+      summary: Download transcript
+      security: [{ firebaseAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PersonaId'
+      responses:
+        '200':
+          description: Transcript text
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    firebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PersonaId:
+      name: personaId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Persona:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        relationship:
+          type: string
+        status:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        remainingMs:
+          type: integer
+    PersonaCreate:
+      type: object
+      required:
+        - name
+        - relationship
+        - traits
+        - keyMemories
+        - commonPhrases
+      properties:
+        name:
+          type: string
+        relationship:
+          type: string
+        traits:
+          type: array
+          items: { type: string }
+        keyMemories:
+          type: array
+          items: { type: string }
+        commonPhrases:
+          type: array
+          items: { type: string }
+        voiceSampleUrl:
+          type: string
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        sender:
+          type: string
+          enum: [user, ai, system]
+        text:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
