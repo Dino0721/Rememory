@@ -89,3 +89,7 @@ Key documents are stored in `docs/`:
 
 # Rememory
 Grief App for people say their "last word"
+1. node install 
+2. node -v 
+3. yarn install 
+4. yarn -v 
