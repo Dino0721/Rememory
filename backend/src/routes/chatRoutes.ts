@@ -45,7 +45,7 @@ router.get('/:personaId/chat', async (req: AuthenticatedRequest, res, next) => {
 router.post('/:personaId/chat', rateLimit, async (req: AuthenticatedRequest, res, next) => {
   try {
     const payload = await messagesSchema.validateAsync(req.body, { abortEarly: false });
-    const persona = await getPersonaByOwner(req.user!.uid);
+    let persona = await getPersonaByOwner(req.user!.uid);
     if (!persona || persona.id !== req.params.personaId) {
       return res.status(404).json({ error: { code: 'persona_not_found', message: 'Persona not found' } });
     }
@@ -55,6 +55,12 @@ router.post('/:personaId/chat', rateLimit, async (req: AuthenticatedRequest, res
     }
 
     await setTimerIfNeeded(persona.id);
+
+    // Refresh persona after potential timer update
+    persona = await getPersonaByOwner(req.user!.uid) ?? persona;
+    if (persona.status === 'expired') {
+      return res.status(410).json({ error: { code: 'persona_expired', message: 'This persona has reached the end of its session.' } });
+    }
 
     const aiResponse = await processChat(persona, payload.text);
     const refreshedGuidance = await ensureGuidanceLevel(persona.id, persona.expiresAt);
